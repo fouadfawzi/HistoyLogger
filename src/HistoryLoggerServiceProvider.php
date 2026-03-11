@@ -44,6 +44,14 @@ class HistoryLoggerServiceProvider extends ServiceProvider
         $this->publishes([
             ...$this->migrationPublishPaths(),
         ], 'history-logger-migrations');
+
+        $this->publishes([
+            ...$this->mainMigrationPublishPaths(),
+        ], 'history-logger-migrations-main');
+
+        $this->publishes([
+            ...$this->tenantMigrationPublishPaths(),
+        ], 'history-logger-migrations-tenant');
     }
 
     protected function isMultiTenantEnabled(): bool
@@ -53,19 +61,27 @@ class HistoryLoggerServiceProvider extends ServiceProvider
 
     protected function migrationSourceDirectory(): string
     {
-        if ($this->isMultiTenantEnabled()) {
+        if ($this->isOnlyTenantMode()) {
             return __DIR__ . '/../database/migrations/tenant';
         }
 
         return __DIR__ . '/../database/migrations';
     }
 
-    protected function migrationPublishDirectory(): string
+    protected function mainMigrationPublishDirectory(): string
     {
-        $targetDirectory = $this->isMultiTenantEnabled()
-            ? (string) config('history-logger.tenant_migration_path', database_path('migrations/tenant'))
-            : database_path('migrations');
+        return $this->ensureDirectory(database_path('migrations'));
+    }
 
+    protected function tenantMigrationPublishDirectory(): string
+    {
+        $targetDirectory = (string) config('history-logger.tenant_migration_path', database_path('migrations/tenant'));
+
+        return $this->ensureDirectory($targetDirectory);
+    }
+
+    protected function ensureDirectory(string $targetDirectory): string
+    {
         if (! File::isDirectory($targetDirectory)) {
             File::makeDirectory($targetDirectory, 0755, true);
         }
@@ -75,8 +91,45 @@ class HistoryLoggerServiceProvider extends ServiceProvider
 
     protected function migrationPublishPaths(): array
     {
-        $sourceDirectory = $this->migrationSourceDirectory();
-        $publishDirectory = $this->migrationPublishDirectory();
+        if ($this->isOnlyTenantMode()) {
+            return $this->tenantMigrationPublishPaths();
+        }
+
+        $paths = $this->mainMigrationPublishPaths();
+
+        if ($this->isMultiTenantEnabled()) {
+            $paths = array_merge($paths, $this->tenantMigrationPublishPaths());
+        }
+
+        return $paths;
+    }
+
+    protected function mainMigrationPublishPaths(): array
+    {
+        if ($this->isOnlyTenantMode()) {
+            return [];
+        }
+
+        return $this->buildMigrationPublishPaths(
+            __DIR__ . '/../database/migrations',
+            $this->mainMigrationPublishDirectory()
+        );
+    }
+
+    protected function tenantMigrationPublishPaths(): array
+    {
+        if (! $this->isMultiTenantEnabled() && ! $this->isOnlyTenantMode()) {
+            return [];
+        }
+
+        return $this->buildMigrationPublishPaths(
+            __DIR__ . '/../database/migrations/tenant',
+            $this->tenantMigrationPublishDirectory()
+        );
+    }
+
+    protected function buildMigrationPublishPaths(string $sourceDirectory, string $publishDirectory): array
+    {
         $paths = [];
 
         foreach (File::files($sourceDirectory) as $file) {
@@ -90,5 +143,10 @@ class HistoryLoggerServiceProvider extends ServiceProvider
         }
 
         return $paths;
+    }
+
+    protected function isOnlyTenantMode(): bool
+    {
+        return (bool) config('history-logger.only_tenant_mode', false);
     }
 }

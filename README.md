@@ -36,7 +36,17 @@ Publish migrations:
 php artisan vendor:publish --provider="FouadFawzi\HistoryLogger\HistoryLoggerServiceProvider" --tag="history-logger-migrations"
 ```
 
-The package now publishes all migration files from its own `database/migrations` directory.
+Migration publishing behavior:
+- Default (`multi_tenant=false`, `only_tenant_mode=false`): publishes **main** migrations only.
+- `multi_tenant=true`: publishes **main + tenant** migrations.
+- `only_tenant_mode=true`: publishes **tenant** migrations only (main is skipped).
+
+Optional explicit tags:
+
+```bash
+php artisan vendor:publish --provider="FouadFawzi\HistoryLogger\HistoryLoggerServiceProvider" --tag="history-logger-migrations-main"
+php artisan vendor:publish --provider="FouadFawzi\HistoryLogger\HistoryLoggerServiceProvider" --tag="history-logger-migrations-tenant"
+```
 
 Optional: publish views:
 
@@ -121,6 +131,9 @@ Useful options:
 'max_entries' => 10000000,
 'excluded_columns' => [],
 'ignored_models' => [],
+'multi_tenant' => false,
+'only_tenant_mode' => false,
+'tenant_migration_path' => database_path('migrations/tenant'),
 'table_name' => 'history_logs',
 'pivot_table_name' => 'history_loggables',
 ```
@@ -157,6 +170,7 @@ If your app is multi-tenant:
 
 ```php
 'multi_tenant' => true,
+'only_tenant_mode' => false, // keeps main + tenant publishing
 'tenant_migration_path' => database_path('migrations/tenant'),
 ```
 
@@ -167,6 +181,13 @@ php artisan vendor:publish --provider="FouadFawzi\HistoryLogger\HistoryLoggerSer
 ```
 
 4. Run tenant migrations using your tenant workflow.
+
+If you want tenant-only mode:
+
+```php
+'multi_tenant' => true,
+'only_tenant_mode' => true, // skips main migration publishing
+```
 
 ## Optional History Viewer Route
 
