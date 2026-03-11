@@ -1,6 +1,6 @@
 # Laravel History Logger
 
-`fouadfawzi/history-logger` is a Laravel package that tracks model changes and stores JSON snapshots for each event in `history_logs`.
+`history-logger` is a Laravel package that tracks model changes and stores JSON snapshots for each event in `history_logs`.
 
 It helps developers by giving a built-in model history layer without writing repetitive audit logic in every project.
 
