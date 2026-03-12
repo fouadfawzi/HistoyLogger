@@ -37,9 +37,9 @@ php artisan vendor:publish --provider="FouadFawzi\HistoryLogger\HistoryLoggerSer
 ```
 
 Migration publishing behavior:
-- Default (`multi_tenant=false`, `only_tenant_mode=false`): publishes **main** migrations only.
-- `multi_tenant=true`: publishes **main + tenant** migrations.
-- `only_tenant_mode=true`: publishes **tenant** migrations only (main is skipped).
+- `multi_tenant=false`: main migrations are always included.
+- `multi_tenant=true` + `disable_main_db_in_multi_tenant_mode=false` (default): main + tenant migrations.
+- `multi_tenant=true` + `disable_main_db_in_multi_tenant_mode=true`: tenant migrations only.
 
 Optional explicit tags:
 
@@ -118,6 +118,53 @@ $order = Order::find(1);
 $logs = $order->historyLogs()->latest()->get();
 ```
 
+The package also ships with a static query helper class:
+
+```php
+use FouadFawzi\HistoryLogger\Support\HistoryLog;
+```
+
+Get all logs (optional date range):
+
+```php
+$all = HistoryLog::list();
+
+$betweenDates = HistoryLog::list(
+    startDate: '2026-01-01 00:00:00',
+    endDate: '2026-01-31 23:59:59'
+);
+```
+
+Get logs by filters (`model`, `actor`, `startDate`, `endDate` are all optional):
+
+```php
+// Only model logs
+$userLogs = HistoryLog::getBy(model: App\Models\User::class);
+
+// Model + actor (recommended actor format)
+$userLogsByAdmin = HistoryLog::getBy(
+    model: App\Models\User::class,
+    actor: ['type' => App\Models\Admin::class, 'id' => 7]
+);
+
+// Model + actor (positional actor format is also supported)
+$userLogsByAdminPositional = HistoryLog::getBy(
+    model: App\Models\User::class,
+    actor: [App\Models\Admin::class, 7]
+);
+
+// Actor + date range
+$actorLogs = HistoryLog::getBy(
+    actor: ['type' => App\Models\User::class, 'id' => 5],
+    startDate: now()->subWeek(),
+    endDate: now()
+);
+```
+
+Actor filter rules:
+- `actor` can be `null`, `['type' => SomeClass::class]`, or `['type' => SomeClass::class, 'id' => 5]`.
+- If actor `id` is provided, actor `type` is required.
+
 ## Configuration Options
 
 Main config file: `config/history-logger.php`
@@ -132,6 +179,7 @@ Useful options:
 'excluded_columns' => [],
 'ignored_models' => [],
 'multi_tenant' => false,
+'disable_main_db_in_multi_tenant_mode' => false,
 'only_tenant_mode' => false,
 'tenant_migration_path' => database_path('migrations/tenant'),
 'table_name' => 'history_logs',
@@ -170,7 +218,8 @@ If your app is multi-tenant:
 
 ```php
 'multi_tenant' => true,
-'only_tenant_mode' => false, // keeps main + tenant publishing
+'disable_main_db_in_multi_tenant_mode' => false, // default: keep publishing main
+'only_tenant_mode' => false,
 'tenant_migration_path' => database_path('migrations/tenant'),
 ```
 
@@ -182,11 +231,18 @@ php artisan vendor:publish --provider="FouadFawzi\HistoryLogger\HistoryLoggerSer
 
 4. Run tenant migrations using your tenant workflow.
 
-If you want tenant-only mode:
+If you want to skip publishing main DB migrations when multi-tenant mode is enabled:
 
 ```php
 'multi_tenant' => true,
-'only_tenant_mode' => true, // skips main migration publishing
+'disable_main_db_in_multi_tenant_mode' => true, // publish tenant migrations only
+'only_tenant_mode' => false,
+```
+
+`only_tenant_mode` controls migration loading for `php artisan migrate`:
+
+```php
+'only_tenant_mode' => true, // load tenant migration directory
 ```
 
 ## Optional History Viewer Route
@@ -246,6 +302,30 @@ php artisan history-logger:clear --force
 ```
 
 `--force` skips the confirmation prompt and executes the delete immediately.
+
+Quick end-to-end logger test:
+
+```bash
+php artisan history-logger:test "App\\Models\\User" --email="history-demo@example.com" --iterations=3 --show=5
+```
+
+Test date filters quickly:
+
+```bash
+php artisan history-logger:test-dates --start="2026-03-01 00:00:00" --end="2026-03-31 23:59:59"
+```
+
+With model + actor filters:
+
+```bash
+php artisan history-logger:test-dates \
+  --model="App\\Models\\User" \
+  --actor-type="App\\Models\\User" \
+  --actor-id=5 \
+  --start="2026-03-01 00:00:00" \
+  --end="2026-03-31 23:59:59" \
+  --preview=10
+```
 
 ## License
 

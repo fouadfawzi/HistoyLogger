@@ -64,15 +64,17 @@ return [
     | Multi Tenant Mode
     |--------------------------------------------------------------------------
     | Publishing behavior:
-    | - Default: publish main migrations only.
-    | - multi_tenant=true: publish main + tenant migrations.
-    | - only_tenant_mode=true: publish tenant migrations only.
+    | - multi_tenant=false: main migrations are always publishable.
+    | - multi_tenant=true: tenant migrations are included.
+    | - multi_tenant=true + disable_main_db_in_multi_tenant_mode=true:
+    |   main migrations are excluded from publish tags.
     |
     | Loading behavior for `php artisan migrate`:
     | - Default: load main migrations.
     | - only_tenant_mode=true: load tenant migrations.
     */
     'multi_tenant' => env('HISTORY_LOGGER_MULTI_TENANT', false),
+    'disable_main_db_in_multi_tenant_mode' => env('HISTORY_LOGGER_DISABLE_MAIN_DB_IN_MULTI_TENANT_MODE', false),
     'only_tenant_mode' => env('HISTORY_LOGGER_ONLY_TENANT_MODE', false),
     'tenant_migration_path' => database_path('migrations/tenant'),
 

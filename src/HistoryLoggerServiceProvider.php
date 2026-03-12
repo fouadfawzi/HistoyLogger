@@ -5,6 +5,8 @@ namespace FouadFawzi\HistoryLogger;
 
 use FouadFawzi\HistoryLogger\Console\Commands\ClearHistoryCommand;
 use FouadFawzi\HistoryLogger\Console\Commands\PruneHistoryCommand;
+use FouadFawzi\HistoryLogger\Console\Commands\TestHistoryLoggerCommand;
+use FouadFawzi\HistoryLogger\Console\Commands\TestHistoryDatesCommand;
 use FouadFawzi\HistoryLogger\Services\HistoryLogger;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
@@ -31,6 +33,8 @@ class HistoryLoggerServiceProvider extends ServiceProvider
         $this->commands([
             PruneHistoryCommand::class,
             ClearHistoryCommand::class,
+            TestHistoryLoggerCommand::class,
+            TestHistoryDatesCommand::class,
         ]);
 
         $this->publishes([
@@ -91,13 +95,13 @@ class HistoryLoggerServiceProvider extends ServiceProvider
 
     protected function migrationPublishPaths(): array
     {
-        if ($this->isOnlyTenantMode()) {
-            return $this->tenantMigrationPublishPaths();
+        $paths = [];
+
+        if ($this->shouldPublishMainMigrations()) {
+            $paths = array_merge($paths, $this->mainMigrationPublishPaths());
         }
 
-        $paths = $this->mainMigrationPublishPaths();
-
-        if ($this->isMultiTenantEnabled()) {
+        if ($this->isMultiTenantEnabled() || $this->isOnlyTenantMode()) {
             $paths = array_merge($paths, $this->tenantMigrationPublishPaths());
         }
 
@@ -106,7 +110,7 @@ class HistoryLoggerServiceProvider extends ServiceProvider
 
     protected function mainMigrationPublishPaths(): array
     {
-        if ($this->isOnlyTenantMode()) {
+        if (! $this->shouldPublishMainMigrations()) {
             return [];
         }
 
@@ -148,5 +152,14 @@ class HistoryLoggerServiceProvider extends ServiceProvider
     protected function isOnlyTenantMode(): bool
     {
         return (bool) config('history-logger.only_tenant_mode', false);
+    }
+
+    protected function shouldPublishMainMigrations(): bool
+    {
+        if (! $this->isMultiTenantEnabled()) {
+            return true;
+        }
+
+        return ! (bool) config('history-logger.disable_main_db_in_multi_tenant_mode', false);
     }
 }
